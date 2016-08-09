@@ -1,0 +1,21 @@
+{
+  "name": "harvester-slack",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@slack/client": "^3.5.4",
+    "botkit": "^0.2.2",
+    "es6-promisify": "^4.1.0",
+    "fuse.js": "^2.4.1",
+    "harvest": "^0.1.5",
+    "rxjs": "^5.0.0-beta.10",
+    "seamless-immutable": "^6.1.1"
+  }
+}
