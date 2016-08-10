@@ -110,9 +110,19 @@ const harvester = (email, password) => {
     })
   }
 
+  const getProjects = (args) => {
+    // TODO(evo): add filtering by client_id and/or updated_since
+    // @see: http://help.getharvest.com/api/projects-api/projects/create-and-show-projects/#filtering-requests
+    return new Promise((resolve, reject) => {
+      harvest.Projects.list(args || {}, (err, projects) => err ? reject(err) : resolve(projects))
+    })
+    .then((projects) => projects.map((o) => o && o.project).filter((o) => o))
+  }
+
   return {
     rawHarvest: harvest,
-    getInfo
+    getInfo,
+    getProjects
   }
 }
 
@@ -412,6 +422,35 @@ controller.hears(['help', 'info', '[?]+'], ['direct_message'], (bot, message) =>
     convo.next()
   })
 })
+
+controller.hears('projects', ['direct_message'], (bot, message) => {
+  const { user: userId } = message
+
+  getUserData(userId)
+  .then(({ harvestEmail, harvestPassword }) => {
+    if (!harvestEmail || !harvestPassword) {
+      bot.reply(message, 'Sorry, but you are not authenticated')
+      return
+    }
+
+    return harvester(harvestEmail, harvestPassword)
+      .getProjects()
+      .then((projects) => {
+        projects.sort((a, b) => {
+          return (a.updated_at > b.updated_at) - (a.updated_at < b.updated_at)
+        })
+        const names = projects.slice(-10).map((project) => project.name).reverse()
+        bot.reply(message, '*Latest 10:*\n' + names.join('\n'))
+      }, (err) => {
+        bot.reply(message, `Got an error: ${err.message}`)
+        console.error('harvester.getProjects:err', err)
+      })
+      .catch((err) => {
+        console.error('getProjects?:', err)
+      })
+  })
+})
+
 // function emitify (obj, key, keys) {
 //   let eventEmitter
 //   let controller = obj
