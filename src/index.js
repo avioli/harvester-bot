@@ -82,7 +82,7 @@ const saveChanData = (chanId, data) => {
   return getUserData(chanId)
   .then((chanData) => {
     return new Promise((resolve, reject) => {
-      const newChanData = Object.assing({}, chanData, data, { id: chanId })
+      const newChanData = Object.assign({}, chanData, data, { id: chanId })
 
       controller.storage.channels.save(newChanData, (err) => {
         chanDataState = chanDataState.set(chanId, false)
