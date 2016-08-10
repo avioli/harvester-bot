@@ -423,11 +423,11 @@ controller.hears('projects', ['direct_message'], (bot, message) => {
   })
 })
 
-controller.hears(['today'], ['direct_message'], (bot, message) => {
+controller.hears(['today', 'timers'], ['direct_message'], (bot, message) => {
   const { user: userId } = message
 
   store.getUserData(userId)
-  .then(({ harvestEmail, harvestPassword }) => {
+  .then(({ name, harvestEmail, harvestPassword }) => {
     if (!harvestEmail || !harvestPassword) {
       bot.reply(message, 'Sorry, but you are not authenticated')
       return
@@ -437,12 +437,27 @@ controller.hears(['today'], ['direct_message'], (bot, message) => {
       .getDaily({ slim: 1 })
       .then(({ day_entries: timers }) => {
         // console.log('timers:', timers)
+
+        if (!timers || timers.length < 0) {
+          bot.reply(message, `Sorry ${name}, but there are no timers.`)
+          return
+        }
+
         timers.sort((a, b) => {
           return (a.updated_at > b.updated_at) - (a.updated_at < b.updated_at)
         })
 
-        const content = timers.map(({ client, hours, hours_without_timer, timer_started_at }) => {
-          return `${client}: *${hours}* ${timer_started_at ? '_(running)_' : ''}`
+        const content = timers.map(({ client, project, task, hours, timer_started_at }) => {
+          const duration = moment.duration(hours, 'hours')
+          const durationString = duration.format('h:mm')
+          let text = `• ${project} (${client}): *${durationString}*`
+          if (timer_started_at) {
+            text += ' _(running)_'
+          }
+          if (task && task.length > 0) {
+            text += `\n_${task}_`
+          }
+          return text
         }).reverse()
 
         bot.reply(message, {
