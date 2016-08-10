@@ -471,7 +471,7 @@ const rnd = (array) => {
 
 controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( and( (no|the)( \b[\w]+\b)?)? (notes|task))?)?/], ['direct_mention'], (bot, message) => {
   const { user: userId, match } = message
-  console.log('message:', message)
+  // console.log('message:', message)
 
   let withTask = false
   let withNotes = false
