@@ -396,7 +396,16 @@ controller.hears('projects', ['direct_message'], (bot, message) => {
           return (a.updated_at > b.updated_at) - (a.updated_at < b.updated_at)
         })
         const names = projects.slice(-10).map((project) => project.name).reverse()
-        bot.reply(message, '*Latest 10:*\n' + names.join('\n'))
+        bot.reply(message, {
+          attachments: [
+            {
+              title: 'Latest 10',
+              // pretext: 'Pretext _supports_ mrkdwn',
+              text: names.join('\n'),
+              mrkdwn_in: ['text'] // , 'pretext']
+            }
+          ]
+        })
       }, (err) => {
         bot.reply(message, `Got an error: ${err.message}`)
         console.error('harvester.getProjects:err', err)
@@ -404,6 +413,9 @@ controller.hears('projects', ['direct_message'], (bot, message) => {
       .catch((err) => {
         console.error('getProjects?:', err)
       })
+  })
+  .catch((err) => {
+    console.error('projects:getUserData', err)
   })
 })
 
