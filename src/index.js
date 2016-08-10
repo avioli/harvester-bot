@@ -32,12 +32,6 @@ controller.spawn({
   // scopes: ['chat:write:bot', 'chat:write:user']
 }).startRTM()
 
-// give the bot something to listen for.
-controller.hears('start', ['direct_message'], (bot, message) => {
-  // console.log(JSON.stringify(message))
-  bot.reply(message, 'To be useful, I need you to invite me in a channel.')
-})
-
 const getUserData = (userId) => {
   return new Promise((resolve, reject) => {
     controller.storage.users.get(userId, (err, userData) => err ? resolve() : resolve(userData))
@@ -328,6 +322,9 @@ const harvestAuth = (bot, message, args = {}) => {
   })
 }
 
+// give the bot something to listen for.
+
+// DIRECT MENTIONS
 controller.hears('start', ['direct_mention'], (bot, message) => {
   harvestAuth(bot, message, {
     privateMessageBegin: () => {
@@ -346,6 +343,11 @@ controller.hears('start', ['direct_mention'], (bot, message) => {
   .catch((err) => {
     console.error('error:', err)
   })
+})
+
+// DIRECT MESSAGES
+controller.hears('start', ['direct_message'], (bot, message) => {
+  bot.reply(message, 'This command only makes sense in a channel. Invite me to one first.')
 })
 
 controller.hears(['(re-?)?auth(enticate)?', 'set[- ]?up'], ['direct_message'], (bot, message) => {
@@ -396,6 +398,20 @@ controller.hears('forget all', ['direct_message'], (bot, message) => {
   })
 })
 
+controller.hears(['help', 'info', '[?]+'], ['direct_message'], (bot, message) => {
+  const { text } = message
+
+  bot.startConversation(message, (err, convo) => {
+    if (err) {
+      console.error(`${text}:`, err)
+      return
+    }
+
+    convo.say(`I'm a work in progress.`)
+    convo.say(`Ask Evo what I'm for, but he'll let you know soon.`)
+    convo.next()
+  })
+})
 // function emitify (obj, key, keys) {
 //   let eventEmitter
 //   let controller = obj
