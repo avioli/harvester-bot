@@ -40,6 +40,27 @@ controller.spawn({
   // console.log('payload', payload)
   const { team, channels, groups, users } = payload
   const { domain } = team
+
+  // store.saveTeamData()
+
+  channels.concat(groups).forEach((item) => {
+    // console.log('channel:', channel)
+    // NOTE(evo): groups imply membership
+    const { id, is_archived, is_member, creator, is_group, name } = item
+
+    if (is_archived || (!is_group && !is_member)) {
+      return
+    }
+
+    // TODO(evo): Check local channel data if we've got connected HARVEST client/project
+    store.saveChanData(id, {
+      name
+    })
+    .catch((err) => {
+      console.error('startRTM:store.saveUserData', err)
+    })
+  })
+
   users.forEach((user) => {
     const { id, deleted, is_bot, profile, name, real_name } = user
 
@@ -57,6 +78,9 @@ controller.spawn({
     store.saveUserData(id, {
       name,
       slackEmail: email
+    })
+    .catch((err) => {
+      console.error('startRTM:store.saveUserData', err)
     })
   })
 })
