@@ -1,10 +1,10 @@
 const Botkit = require('botkit')
-const promisify = require('es6-promisify')
-const Rx = require('rxjs/Rx')
-const Observable = Rx.Observable
-const Harvest = require('harvest')
-const Immutable = require('seamless-immutable')
+// const promisify = require('es6-promisify')
+// const Rx = require('rxjs/Rx')
+// const Observable = Rx.Observable
 // const EventEmitter = require('events').EventEmitter
+const Store = require('./store')
+const harvester = require('./harvester')
 
 // HARVEST
 // const harvest = new Harvest({
@@ -25,71 +25,46 @@ const controller = Botkit.slackbot({
   //include "log: false" to disable logging
   //or a "logLevel" integer from 0 to 7 to adjust logging verbosity
 })
+const store = Store.curry(controller)
 
 // connect the bot to a stream of messages
 controller.spawn({
   token: process.env.SLACK_API_TOKEN
   // scopes: ['chat:write:bot', 'chat:write:user']
-}).startRTM()
-
-const getUserData = (userId) => {
-  return new Promise((resolve, reject) => {
-    controller.storage.users.get(userId, (err, userData) => err ? resolve() : resolve(userData))
-  })
-}
-
-let userDataState = Immutable({})
-
-const saveUserData = (userId, data) => {
-  if (userDataState[userId]) {
-    return Promise.reject(new Error('Saving in progress'))
+}).startRTM((err, bot, payload) => {
+  if (err) {
+    // bot.destroy()
+    throw new Error('Could not connect to Slack')
   }
-  userDataState = userDataState.set(userId, true)
 
-  return getUserData(userId)
-  .then((userData) => {
-    return new Promise((resolve, reject) => {
-      const newUserData = Object.assign({}, userData, data, { id: userId })
+  // console.log('payload', payload)
+  const { team, channels, groups, users } = payload
+  const { domain } = team
+  users.forEach((user) => {
+    const { id, deleted, is_bot, profile, name, real_name } = user
 
-      controller.storage.users.save(newUserData, (err) => {
-        userDataState = userDataState.set(userId, false)
-        return err ? reject(err) : resolve(newUserData)
-      })
+    if (deleted || is_bot || id === 'USLACKBOT') {
+      return
+    }
+
+    // console.log('user:', name, real_name)
+    // console.log('profile:', profile)
+    const { email } = profile
+    if (!email) {
+      return
+    }
+
+    store.saveUserData(id, {
+      name,
+      slackEmail: email
     })
   })
-}
-
-const getChanData = (chanId) => {
-  return new Promise((resolve, reject) => {
-    controller.storage.channels.get(chanId, (err, chanData) => err ? resolve() : resolve(chanData))
-  })
-}
-
-let chanDataState = Immutable({})
-
-const saveChanData = (chanId, data) => {
-  if (chanDataState[chanId]) {
-    return Promise.reject(new Error('Saving in progress'))
-  }
-  chanDataState = chanDataState.set(chanId, true)
-
-  return getUserData(chanId)
-  .then((chanData) => {
-    return new Promise((resolve, reject) => {
-      const newChanData = Object.assign({}, chanData, data, { id: chanId })
-
-      controller.storage.channels.save(newChanData, (err) => {
-        chanDataState = chanDataState.set(chanId, false)
-        return err ? reject(err) : resolve(newChanData)
-      })
-    })
-  })
-}
+})
 
 controller.on(['channel_joined', 'group_joined'], (bot, message) => {
   const { type, channel } = message
   const { id, name } = channel
-  return saveChanData(id, {
+  return store.saveChanData(id, {
     name
   })
   .catch((err) => {
@@ -97,75 +72,15 @@ controller.on(['channel_joined', 'group_joined'], (bot, message) => {
   })
 })
 
-const harvester = (email, password) => {
-  const harvest = new Harvest({
-    subdomain: process.env.HARVEST_SUBDOMAIN,
-    email,
-    password
-  })
-
-  const getInfo = (args) => {
-    return new Promise((resolve, reject) => {
-      harvest.Account.get(args || {}, (err, info) => err ? reject(err) : resolve(info))
-    })
-  }
-
-  const getProjects = (args) => {
-    // TODO(evo): add filtering by client_id and/or updated_since
-    // @see: http://help.getharvest.com/api/projects-api/projects/create-and-show-projects/#filtering-requests
-    return new Promise((resolve, reject) => {
-      harvest.Projects.list(args || {}, (err, projects) => err ? reject(err) : resolve(projects))
-    })
-    .then((projects) => projects.map((o) => o && o.project).filter((o) => o))
-  }
-
-  const createProject = (args) => {
-    const { client_id, name, active = true } = args || {}
-
-    if (!client_id || !name) {
-      return Promise.reject(new Error('To create a project you have to provide at minimum client and name.'))
-    }
-
-    const newProject = {
-      project: Object.assign({}, args, { active })
-    }
-
-    return new Promise((resolve, reject) => {
-      harvest.Projects.create(newProject, (err, response) => err ? reject(err) : resolve(response))
-    })
-  }
-
-  const getDaily = (args) => {
-    return new Promise((resolve, reject) => {
-      harvest.TimeTracking.daily(args || {}, (err, timers) => err ? reject(err) : resolve(timers))
-    })
-  }
-
-  // TODO:
-  //   - start/stop/toggle timers
-
-  // const projectsList = promisify(harvest.Projects.list, harvest.Projects)
-  // const projectsSource = Observable.fromPromise(projectsList({}))
-  //   .flatMap((x) => x)
-  //   .pluck('project')
-
-  return {
-    rawHarvest: harvest,
-    getInfo,
-    getProjects,
-    createProject,
-    getDaily
-  }
-}
 
 const harvestAuth = (bot, message, args = {}) => {
   const { user: userId } = message
   const { harvestEmail: defaultEmail } = args
 
-  return getUserData(userId)
-  .then(({ harvestEmail, harvestPassword } = {}) => {
-    if (defaultEmail && !harvestEmail) {
-      harvestEmail = defaultEmail
+  return store.getUserData(userId)
+  .then(({ slackEmail, harvestEmail, harvestPassword } = {}) => {
+    if ((defaultEmail || slackEmail) && !harvestEmail) {
+      harvestEmail = defaultEmail || slackEmail
       harvestPassword = undefined
     }
 
@@ -297,7 +212,7 @@ const harvestAuth = (bot, message, args = {}) => {
           }
 
           if (harvestEmail) {
-            convo.ask(`I've got *${harvestEmail}* on file. Should I use that? [yes/no]`, [
+            convo.ask(`I've got *${harvestEmail}* on file. Should I use that as HARVEST email? [yes/no]`, [
               {
                 pattern: bot.utterances.yes,
                 callback: (response, convo) => {
@@ -322,6 +237,8 @@ const harvestAuth = (bot, message, args = {}) => {
                 }
               }
             ])
+          } else {
+            testDetails(null, convo)
           }
 
           convo.on('end', (convo) => {
@@ -345,7 +262,7 @@ const harvestAuth = (bot, message, args = {}) => {
       })
       .then(({ harvestEmail, harvestPassword, lastAuthError } = {}) => {
         if (harvestEmail && harvestPassword && !lastAuthError) {
-          return saveUserData(userId, {
+          return store.saveUserData(userId, {
             harvestEmail,
             harvestPassword
           })
@@ -416,7 +333,7 @@ controller.hears(['(re-?)?auth(enticate)?', 'set[- ]?up'], ['direct_message'], (
 controller.hears(['forget', 'forget me', 'forget them'], ['direct_message'], (bot, message) => {
   const { user: userId } = message
 
-  saveUserData(userId, {
+  store.saveUserData(userId, {
     harvestPassword: undefined
   })
   .then(() => {
@@ -429,7 +346,7 @@ controller.hears(['forget', 'forget me', 'forget them'], ['direct_message'], (bo
 controller.hears('forget all', ['direct_message'], (bot, message) => {
   const { user: userId } = message
 
-  saveUserData(userId, {
+  store.saveUserData(userId, {
     harvestEmail: undefined,
     harvestPassword: undefined
   })
@@ -458,7 +375,7 @@ controller.hears(['help', 'info', '[?]+'], ['direct_message'], (bot, message) =>
 controller.hears('projects', ['direct_message'], (bot, message) => {
   const { user: userId } = message
 
-  getUserData(userId)
+  store.getUserData(userId)
   .then(({ harvestEmail, harvestPassword }) => {
     if (!harvestEmail || !harvestPassword) {
       bot.reply(message, 'Sorry, but you are not authenticated')
@@ -505,7 +422,7 @@ controller.hears('projects', ['direct_message'], (bot, message) => {
 // }
 
 // const messageReceived = emitify(controller, 'message_received', ['bot', 'message'])
-// var source = Rx.Observable.fromEvent(messageReceived, 'message_received')
+// var source = Observable.fromEvent(messageReceived, 'message_received')
 
 // Observable.fromEvent(messageReceived, 'message_received')
 // // .map((data) => { console.log(data); return data })
