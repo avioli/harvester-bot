@@ -419,6 +419,48 @@ controller.hears('projects', ['direct_message'], (bot, message) => {
   })
 })
 
+controller.hears(['today'], ['direct_message'], (bot, message) => {
+  const { user: userId } = message
+
+  store.getUserData(userId)
+  .then(({ harvestEmail, harvestPassword }) => {
+    if (!harvestEmail || !harvestPassword) {
+      bot.reply(message, 'Sorry, but you are not authenticated')
+      return
+    }
+
+    return harvester(harvestEmail, harvestPassword)
+      .getDaily({ slim: 1 })
+      .then(({ day_entries: timers }) => {
+        // console.log('timers:', timers)
+        timers.sort((a, b) => {
+          return (a.updated_at > b.updated_at) - (a.updated_at < b.updated_at)
+        })
+
+        const content = timers.map(({ client, hours, hours_without_timer, timer_started_at }) => {
+          return `${client}: *${hours}* ${timer_started_at ? '_(running)_' : ''}`
+        }).reverse()
+
+        bot.reply(message, {
+          attachments: [
+            {
+              title: `Today's timers`,
+              // pretext: 'Pretext _supports_ mrkdwn',
+              text: content.join('\n'),
+              mrkdwn_in: ['text'] // , 'pretext']
+            }
+          ]
+        })
+      })
+      .catch((err) => {
+        console.error('getDaily?:', err)
+      })
+  })
+  .catch((err) => {
+    console.error('today:getUserData', err)
+  })
+})
+
 controller.hears(['help', 'info', '[?]+'], ['direct_message'], (bot, message) => {
   const { text } = message
 
