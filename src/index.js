@@ -189,25 +189,18 @@ const harvestAuth = (bot, message, args = {}) => {
               convo.next()
             } else {
               convo.say('Testing...')
-              const harvest = new Harvest({
-                subdomain: process.env.HARVEST_SUBDOMAIN,
-                email: harvestEmail,
-                password: harvestPassword
-              })
-
-              harvest.Account.get({}, (err, info) => {
-                if (err) {
-                  // convo.repeat()
-                  console.error('harvest.Account.get', err)
-                  convo.say(`Those details didn't work: ${err.message}`)
-                  lastAuthError = err
-                } else {
-                  console.log('harvest.Account.get', JSON.stringify(info))
+              harvester(harvestEmail, harvestPassword)
+                .getInfo()
+                .then((info) => {
+                  console.log('harvester.getInfo', JSON.stringify(info))
                   convo.say('All good.')
                   lastAuthError = undefined
-                }
-                convo.next()
-              })
+                }, (err) => {
+                  console.error('harvester.getInfo:err', err)
+                  convo.say(`Those details didn't work: ${err.message}`)
+                  lastAuthError = err
+                })
+                .then(() => { convo.next() })
             }
           }
 
