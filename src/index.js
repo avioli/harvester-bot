@@ -469,22 +469,22 @@ const rnd = (array) => {
   return array[Math.floor(Math.random() * array.length)]
 }
 
-controller.hears([/\breport\b( w(ith)?( (no))? (notes|task)( and( (no))? (notes|task))?)?/], ['direct_mention'], (bot, message) => {
+controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( and( (no|the)( \b[\w]+\b)?)? (notes|task))?)?/], ['direct_mention'], (bot, message) => {
   const { user: userId, match } = message
-  // console.log('message:', message)
+  console.log('message:', message)
 
   let withTask = false
   let withNotes = false
-  if (match[5] === 'task' && match[4] !== 'no') {
+  if (match[6] === 'task' && match[4] !== 'no') {
     withTask = true
   }
-  if (match[5] === 'notes' && match[4] !== 'no') {
+  if (match[6] === 'notes' && match[4] !== 'no') {
     withNotes = true
   }
-  if (match[9] === 'task' && match[8] !== 'no') {
+  if (match[11] === 'task' && match[9] !== 'no') {
     withTask = true
   }
-  if (match[9] === 'notes' && match[8] !== 'no') {
+  if (match[11] === 'notes' && match[9] !== 'no') {
     withNotes = true
   }
 
@@ -543,10 +543,10 @@ controller.hears([/\breport\b( w(ith)?( (no))? (notes|task)( and( (no))? (notes|
                   text += ' _(running)_'
                 }
                 if (withTask && task && task.length > 0) {
-                  text += `\n  _${task}_`
+                  text += `\n_${task}_`
                 }
                 if (withNotes && notes && notes.length > 0) {
-                  text += `\n  _${notes}_`
+                  text += `\n_Notes: ${notes}_`
                 }
                 return text
               }).reverse()
