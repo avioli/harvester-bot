@@ -350,21 +350,6 @@ controller.hears('forget all', ['direct_message'], (bot, message) => {
   })
 })
 
-controller.hears(['help', 'info', '[?]+'], ['direct_message'], (bot, message) => {
-  const { text } = message
-
-  bot.startConversation(message, (err, convo) => {
-    if (err) {
-      console.error(`${text}:`, err)
-      return
-    }
-
-    convo.say(`I'm a work in progress.`)
-    convo.say(`Ask Evo what I'm for, but he'll let you know soon.`)
-    convo.next()
-  })
-})
-
 controller.hears('projects', ['direct_message'], (bot, message) => {
   const { user: userId } = message
 
@@ -391,6 +376,29 @@ controller.hears('projects', ['direct_message'], (bot, message) => {
         console.error('getProjects?:', err)
       })
   })
+})
+
+controller.hears(['help', 'info', '[?]+'], ['direct_message'], (bot, message) => {
+  const { text } = message
+
+  bot.startConversation(message, (err, convo) => {
+    if (err) {
+      console.error(`${text}:`, err)
+      return
+    }
+
+    convo.say(`I'm a work in progress.`)
+    convo.say(`Ask Evo what I'm for, but he'll let you know soon.`)
+    convo.next()
+  })
+})
+
+controller.hears([/\bcommands\b/], ['direct_message'], (bot, message) => {
+  bot.reply(message, `Sorry, but I can't say yet... since I'm a work in progress.`)
+})
+
+controller.hears('', ['direct_message'], (bot, message) => {
+  bot.reply(message, `Sorry, but I'm not aware of such command... you know I'm a bot, right?\nTry asking for *help*, *info* of *commands*.`)
 })
 
 // function emitify (obj, key, keys) {
