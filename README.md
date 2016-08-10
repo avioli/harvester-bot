@@ -2,7 +2,7 @@
 
 __This is a work in progress.__
 
-This is a Slack bot that connects a team to Harvester app.
+This is a Slack bot that connects a team to Harvest app.
 
 Uses node and botkit _(which is awesome)_.
 
