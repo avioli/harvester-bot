@@ -5,6 +5,10 @@ const Botkit = require('botkit')
 // const EventEmitter = require('events').EventEmitter
 const Store = require('./store')
 const harvester = require('./harvester')
+const moment = require('moment')
+require('moment-duration-format')
+
+const harvestSubdomain = process.env.HARVEST_SUBDOMAIN
 
 // HARVEST
 // const harvest = new Harvest({
@@ -458,6 +462,138 @@ controller.hears(['today'], ['direct_message'], (bot, message) => {
   })
   .catch((err) => {
     console.error('today:getUserData', err)
+  })
+})
+
+const rnd = (array) => {
+  return array[Math.floor(Math.random() * array.length)]
+}
+
+controller.hears([/\breport\b( w(ith)?( (no))? (notes|task)( and( (no))? (notes|task))?)?/], ['direct_mention'], (bot, message) => {
+  const { user: userId, match } = message
+  // console.log('message:', message)
+
+  let withTask = false
+  let withNotes = false
+  if (match[5] === 'task' && match[4] !== 'no') {
+    withTask = true
+  }
+  if (match[5] === 'notes' && match[4] !== 'no') {
+    withNotes = true
+  }
+  if (match[9] === 'task' && match[8] !== 'no') {
+    withTask = true
+  }
+  if (match[9] === 'notes' && match[8] !== 'no') {
+    withNotes = true
+  }
+
+  store.getUserData(userId)
+  .then(({ name = rnd(['sport', 'friend', 'mate', 'friend', 'buddy', 'mate']), harvestEmail, harvestPassword }) => {
+    if (!harvestEmail || !harvestPassword) {
+      bot.reply(message, `Sorry *${name}*, but I don't know you!`)
+      return
+    }
+
+    const now = moment()
+    const today = now.clone().startOf('day')
+    const yesterday = today.clone().subtract(1, 'day')
+
+    const h = harvester(harvestEmail, harvestPassword)
+
+    return Promise.all([
+      h.getDaily({ date: today.toDate(), slim: 1 }),
+      h.getDaily({ date: yesterday.toDate(), slim: 1 })
+    ])
+      .then(([todayTimers, yesterdayTimers]) => {
+        // console.log('todayTimers:', todayTimers)
+        // console.log('yesterdayTimers:', yesterdayTimers)
+        let harvestUserId
+
+        const content = [yesterdayTimers, todayTimers].map(({ for_day, day_entries }) => {
+          if (!day_entries || day_entries.length < 1) {
+            return ''
+          }
+
+          const date = moment(for_day)
+
+          day_entries.sort((a, b) => {
+            return (a.updated_at > b.updated_at) - (a.updated_at < b.updated_at)
+          })
+
+          const dateString = date.calendar(now, {
+            sameDay: '[Today]',
+            nextDay: '[Tomorrow]',
+            nextWeek: 'dddd',
+            lastDay: '[Yesterday]',
+            lastWeek: '[Last] dddd',
+            sameElse: 'DD/MM/YYYY'
+          })
+
+          return [`*${dateString}:*`]
+            .concat(
+              day_entries.map(({ user_id, client, project, task, hours, timer_started_at, notes }) => {
+                if (!harvestUserId) {
+                  harvestUserId = user_id
+                }
+                const duration = moment.duration(hours, 'hours')
+                const durationString = duration.format('h:mm')
+                let text = `• ${project} (${client}): *${durationString}*`
+                if (timer_started_at) {
+                  text += ' _(running)_'
+                }
+                if (withTask && task && task.length > 0) {
+                  text += `\n  _${task}_`
+                }
+                if (withNotes && notes && notes.length > 0) {
+                  text += `\n  _${notes}_`
+                }
+                return text
+              }).reverse()
+            )
+            .join('\n')
+        })
+
+        const text = content.join('\n').trim()
+
+        if (text.length > 0) {
+          let title_link
+          if (harvestUserId) {
+            const todayFormatted = today.format('YYYYMMDD')
+            const yesterdayFormatted = yesterday.format('YYYYMMDD')
+            title_link = `https://${harvestSubdomain}.harvestapp.com/reports/users/${harvestUserId}?from=${yesterdayFormatted}&kind=custom&till=${todayFormatted}`
+          }
+
+          bot.reply(message, {
+            attachments: [
+              {
+                title: `Here's ${name}'s report`,
+                title_link,
+                // pretext: 'Pretext _supports_ mrkdwn',
+                text,
+                mrkdwn_in: ['text'] // , 'pretext']
+              }
+            ]
+          })
+        } else {
+          bot.reply(message, `Sorry ${name}, but there is nothing to report :)`)
+        }
+      })
+      .catch((err) => {
+        console.error('Promise.all:getDaily?:', err)
+        bot.startPrivateConversation(message, (_err, convo) => {
+          if (_err) {
+            // NOTE(evo): ignore, since we can't do much about it
+            return
+          }
+          convo.say(`Here's the error message from your report:\n${err.message}`)
+          convo.next()
+        })
+        bot.reply(message, 'Sorry, but there was an error fetching your timers.')
+      })
+  })
+  .catch((err) => {
+    console.error('report:getUserData', err)
   })
 })
 
