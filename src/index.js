@@ -86,10 +86,15 @@ controller.spawn({
 })
 
 controller.on(['channel_joined', 'group_joined'], (bot, message) => {
+  // TODO(evo): track these events too: 'channel_rename', 'group_rename'
+  // NOTE(evo): re above: only rename a channel if it does not have a harvest link, yet
   const { type, channel } = message
   const { id, name } = channel
   return store.saveChanData(id, {
     name
+  })
+  .then(({ harvestProjectId }) => {
+    // TODO(evo): check if harvestProjectId is not set and ask for it
   })
   .catch((err) => {
     console.error(type + ':saveChanData', err)
