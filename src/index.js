@@ -302,7 +302,7 @@ controller.hears('start', ['direct_message'], (bot, message) => {
   bot.reply(message, 'This command only makes sense in a channel. Invite me to one first.')
 })
 
-controller.hears(['(re-?)?auth(enticate)?', 'set[- ]?up'], ['direct_message'], (bot, message) => {
+controller.hears(['(re-?)?auth(enticate)?', 'set[- ]?up', 'log[- ]?in'], ['direct_message'], (bot, message) => {
   harvestAuth(bot, message, {
     saySorry: false,
     gotDetails: () => {
@@ -323,14 +323,14 @@ controller.hears(['(re-?)?auth(enticate)?', 'set[- ]?up'], ['direct_message'], (
   })
 })
 
-controller.hears(['forget', 'forget me', 'forget them'], ['direct_message'], (bot, message) => {
+controller.hears(['forget', 'forget me', 'forget (th|\')?em', 'log[- ]?out'], ['direct_message'], (bot, message) => {
   const { user: userId } = message
 
   store.saveUserData(userId, {
     harvestPassword: undefined
   })
   .then(() => {
-    bot.reply(message, 'Done.')
+    bot.reply(message, 'Done. Password forgotten.')
   }, (err) => {
     console.error('hears:forget:saveUserData', err)
   })
