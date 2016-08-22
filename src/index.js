@@ -484,6 +484,7 @@ const rnd = (array) => {
   return array[Math.floor(Math.random() * array.length)]
 }
 
+/*
 controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( and( (no|the)( \b[\w]+\b)?)? (notes|task))?)?/], ['direct_mention'], (bot, message) => {
   const { user: userId, match } = message
   // console.log('message:', message)
@@ -606,6 +607,156 @@ controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( an
         })
         bot.reply(message, 'Sorry, but there was an error fetching your timers.')
       })
+  })
+  .catch((err) => {
+    console.error('report:getUserData', err)
+  })
+})
+*/
+
+// controller.hears([/\breport\b/], ['direct_message'], (bot, message) => {
+controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( and( (no|the)( \b[\w]+\b)?)? (notes|task))?)?/], ['direct_mention', 'direct_message'], (bot, message) => {
+  const { user: userId, match } = message
+  // console.log('message:', message)
+
+  let withTask = false
+  let withNotes = false
+  if (match[6] === 'task' && match[4] !== 'no') {
+    withTask = true
+  }
+  if (match[6] === 'notes' && match[4] !== 'no') {
+    withNotes = true
+  }
+  if (match[11] === 'task' && match[9] !== 'no') {
+    withTask = true
+  }
+  if (match[11] === 'notes' && match[9] !== 'no') {
+    withNotes = true
+  }
+
+  store.getUserData(userId)
+  .then(({ name = rnd(['sport', 'friend', 'mate', 'friend', 'buddy', 'mate']), harvestEmail, harvestPassword }) => {
+    if (!harvestEmail || !harvestPassword) {
+      bot.reply(message, `Sorry *${name}*, but I don't know you!`)
+      return
+    }
+
+    const now = moment()
+    const today = now.clone().startOf('day')
+    const sevenDaysAgo = today.clone().subtract(7, 'day')
+
+    const h = harvester(harvestEmail, harvestPassword)
+
+    return h.getInfo()
+    .then((info) => info && info.user && info.user.id)
+    .then((harvestUserId) => {
+      return h.getTimeEntriesByUser(harvestUserId, sevenDaysAgo, today)
+      .then((entries) => {
+        // console.log('entries:', entries)
+
+        const days = entries.map(({ day_entry }) => day_entry.spent_at).filter((day, idx, self) => self.indexOf(day) === idx)
+        // console.log('days:', days)
+
+        const latestDate = days[days.length - 1]
+        if (!latestDate) {
+          bot.reply(message, 'Sorry, but there is nothing to report within the last seven days.')
+          return
+        }
+        // console.log('latestDate:', latestDate)
+
+        let dateBeforeLatest
+        if (moment(latestDate).isSame(today, 'day')) {
+          dateBeforeLatest = days[days.length - 2]
+        }
+        // console.log('dateBeforeLatest:', dateBeforeLatest)
+
+        return Promise.all([
+          h.getDaily({ date: moment(latestDate).toDate(), slim: 1 }),
+          dateBeforeLatest ? h.getDaily({ date: moment(dateBeforeLatest).toDate(), slim: 1 }) : void 0
+        ])
+        .then(([todayTimers, yesterdayTimers]) => {
+          // console.log('todayTimers:', todayTimers)
+          // console.log('yesterdayTimers:', yesterdayTimers)
+
+          const content = [yesterdayTimers, todayTimers].map(({ for_day, day_entries }) => {
+          // const content = [dayEntries[dateBeforeLatest], dayEntries[latestDate]].map((day_entries) => {
+            if (!day_entries || day_entries.length < 1) {
+              return ''
+            }
+
+            // const for_day = day_entries[0].spent_at
+            const date = moment(for_day)
+
+            day_entries.sort((a, b) => {
+              return (a.updated_at > b.updated_at) - (a.updated_at < b.updated_at)
+            })
+
+            const dateString = date.calendar(now, {
+              sameDay: '[Today]',
+              nextDay: '[Tomorrow]',
+              nextWeek: 'dddd',
+              lastDay: '[Yesterday]',
+              lastWeek: '[Last] dddd',
+              sameElse: 'DD/MM/YYYY'
+            })
+
+            return [`*${dateString}:*`]
+              .concat(
+                day_entries.map(({ client = 'unknown client', project = 'unknown project', task = 'unknown task', hours, timer_started_at, notes }) => {
+                  const duration = moment.duration(hours, 'hours')
+                  const durationString = duration.format('h:mm', { trim: false })
+                  let text = `• ${project} (${client}): *${durationString}*`
+                  if (timer_started_at) {
+                    text += ' _(running)_'
+                  }
+                  if (withTask && task && task.length > 0) {
+                    text += `\n_${task}_`
+                  }
+                  if (withNotes && notes && notes.length > 0) {
+                    text += `\n_Notes: ${notes}_`
+                  }
+                  return text
+                }).reverse()
+              )
+              .join('\n')
+          })
+
+          const text = content.join('\n').trim()
+
+          if (text.length > 0) {
+            const fromFormatted = moment(dateBeforeLatest).format('YYYYMMDD')
+            const toFormatted = moment(latestDate).format('YYYYMMDD')
+            const title_link = `https://${harvestSubdomain}.harvestapp.com/reports/users/${harvestUserId}?from=${fromFormatted}&kind=custom&till=${toFormatted}`
+
+            bot.reply(message, {
+              attachments: [
+                {
+                  title: `Here is ${name}'s report`,
+                  title_link,
+                  // pretext: 'Pretext _supports_ mrkdwn',
+                  text,
+                  mrkdwn_in: ['text'] // , 'pretext']
+                }
+              ]
+            })
+          } else {
+            bot.reply(message, `Sorry ${name}, but there is nothing to report :)`)
+          }
+        })
+      })
+    })
+    .catch((err) => {
+      console.error('report:getInfo|getTimeEntriesByUser|getDaily:', err)
+      bot.startPrivateConversation(message, (_err, convo) => {
+        if (_err) {
+          // NOTE(evo): ignore, since we can't do much about it
+          return
+        }
+        convo.say(`Here is the error message from your report:\n${err.message}`)
+        convo.next()
+      })
+      bot.reply(message, 'Sorry, but there was an error fetching your timers.')
+    })
   })
   .catch((err) => {
     console.error('report:getUserData', err)
