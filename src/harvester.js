@@ -1,4 +1,5 @@
 const Harvest = require('harvest')
+const moment = require('moment')
 
 const harvester = (email, password, subdomain = process.env.HARVEST_SUBDOMAIN) => {
   const harvest = new Harvest({
@@ -44,6 +45,18 @@ const harvester = (email, password, subdomain = process.env.HARVEST_SUBDOMAIN) =
     })
   }
 
+  const getTimeEntriesByUser = (userId, fromDate, toDate, args) => {
+    const newArgs = Object.assign({}, args, {
+      user_id: userId,
+      from: moment(fromDate).format('YYYYMMDD'),
+      to: moment(toDate).format('YYYYMMDD')
+    })
+
+    return new Promise((resolve, reject) => {
+      harvest.Reports.timeEntriesByUser(newArgs, (err, entries) => err ? reject(err) : resolve(entries))
+    })
+  }
+
   // TODO:
   //   - start/stop/toggle timers
 
@@ -57,7 +70,8 @@ const harvester = (email, password, subdomain = process.env.HARVEST_SUBDOMAIN) =
     getInfo,
     getProjects,
     createProject,
-    getDaily
+    getDaily,
+    getTimeEntriesByUser
   }
 }
 
