@@ -449,7 +449,7 @@ controller.hears(['today', 'timers'], ['direct_message'], (bot, message) => {
 
         const content = timers.map(({ client, project, task, hours, timer_started_at }) => {
           const duration = moment.duration(hours, 'hours')
-          const durationString = duration.format('h:mm')
+          const durationString = duration.format('h:mm', { trim: false })
           let text = `• ${project} (${client}): *${durationString}*`
           if (timer_started_at) {
             text += ' _(running)_'
@@ -552,7 +552,7 @@ controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( an
                   harvestUserId = user_id
                 }
                 const duration = moment.duration(hours, 'hours')
-                const durationString = duration.format('h:mm')
+                const durationString = duration.format('h:mm', { trim: false })
                 let text = `• ${project} (${client}): *${durationString}*`
                 if (timer_started_at) {
                   text += ' _(running)_'
@@ -582,7 +582,7 @@ controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( an
           bot.reply(message, {
             attachments: [
               {
-                title: `Here's ${name}'s report`,
+                title: `Here is ${name}'s report`,
                 title_link,
                 // pretext: 'Pretext _supports_ mrkdwn',
                 text,
@@ -601,7 +601,7 @@ controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( an
             // NOTE(evo): ignore, since we can't do much about it
             return
           }
-          convo.say(`Here's the error message from your report:\n${err.message}`)
+          convo.say(`Here is the error message from your report:\n${err.message}`)
           convo.next()
         })
         bot.reply(message, 'Sorry, but there was an error fetching your timers.')
