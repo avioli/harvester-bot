@@ -678,7 +678,7 @@ controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( an
           // console.log('todayTimers:', todayTimers)
           // console.log('yesterdayTimers:', yesterdayTimers)
 
-          const content = [yesterdayTimers, todayTimers].map(({ for_day, day_entries }) => {
+          const content = [yesterdayTimers, todayTimers].map(({ for_day, day_entries } = {}) => {
           // const content = [dayEntries[dateBeforeLatest], dayEntries[latestDate]].map((day_entries) => {
             if (!day_entries || day_entries.length < 1) {
               return ''
