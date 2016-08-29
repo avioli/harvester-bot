@@ -615,22 +615,25 @@ controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( an
 */
 
 // controller.hears([/\breport\b/], ['direct_message'], (bot, message) => {
-controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( and( (no|the)( \b[\w]+\b)?)? (notes|task))?)?/], ['direct_mention', 'direct_message'], (bot, message) => {
+controller.hears([/(\bcompressed|concise|short|neat|condensed|tidy|dense\b)?\s?\b(report|standup)\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( and( (no|the)( \b[\w]+\b)?)? (notes|task))?)?/], ['direct_mention', 'direct_message'], (bot, message) => {
   const { user: userId, match } = message
   // console.log('message:', message)
+  // console.log('match: ', match)
+
+  let tidy = !!match[1] || match[2] === 'standup'
 
   let withTask = false
   let withNotes = false
-  if (match[6] === 'task' && match[4] !== 'no') {
+  if (match[8] === 'task' && match[6] !== 'no') {
     withTask = true
   }
-  if (match[6] === 'notes' && match[4] !== 'no') {
+  if (match[8] === 'notes' && match[6] !== 'no') {
     withNotes = true
   }
-  if (match[11] === 'task' && match[9] !== 'no') {
+  if (match[13] === 'task' && match[11] !== 'no') {
     withTask = true
   }
-  if (match[11] === 'notes' && match[9] !== 'no') {
+  if (match[13] === 'notes' && match[11] !== 'no') {
     withNotes = true
   }
 
@@ -691,7 +694,7 @@ controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( an
               return (a.updated_at > b.updated_at) - (a.updated_at < b.updated_at)
             })
 
-            const dateString = date.calendar(now, {
+            let dateString = date.calendar(now, {
               sameDay: '[Today]',
               nextDay: '[Tomorrow]',
               nextWeek: 'dddd',
@@ -703,42 +706,62 @@ controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( an
             return [`*${dateString}:*`]
               .concat(
                 dayEntries.map(({ client = 'unknown client', project = 'unknown project', task = 'unknown task', hours, timer_started_at: timerStartedAt, notes }) => {
-                  const duration = moment.duration(hours, 'hours')
-                  const durationString = duration.format('h:mm', { trim: false })
-                  let text = `• ${project} (${client}): *${durationString}*`
+                  let text = ''
+
+                  if (tidy) {
+                    text += project
+                  } else {
+                    const duration = moment.duration(hours, 'hours')
+                    const durationString = duration.format('h:mm', { trim: false })
+                    text += `• ${project} (${client}): *${durationString}*`
+                  }
+
                   if (timerStartedAt) {
-                    text += ' _(running)_'
+                    text += tidy ? ':running:' : '\n_(running)_'
                   }
+
                   if (withTask && task && task.length > 0) {
-                    text += `\n_${task}_`
+                    text += tidy ? `_${task.replace('\n', ';')}_` : `\n_${task}_`
                   }
+
                   if (withNotes && notes && notes.length > 0) {
-                    text += `\n_Notes: ${notes}_`
+                    text += tidy ? `:memo::${notes.replace('\n', ';')}` : `\n_Notes: ${notes}_`
                   }
+
+                  if (tidy) {
+                    text += '.'
+                  }
+
                   return text
                 }).reverse()
               )
-              .join('\n')
+              .join(tidy ? ' ' : '\n')
           })
 
           const text = content.join('\n').trim()
 
           if (text.length > 0) {
-            const fromFormatted = moment(dateBeforeLatest).format('YYYYMMDD')
-            const toFormatted = moment(latestDate).format('YYYYMMDD')
-            const titleLink = `https://${harvestSubdomain}.harvestapp.com/reports/users/${harvestUserId}?from=${fromFormatted}&kind=custom&till=${toFormatted}`
+            let reply
+            if (tidy) {
+              reply = `Here you go ${name}:\n${text}`
+            } else {
+              const fromFormatted = moment(dateBeforeLatest).format('YYYYMMDD')
+              const toFormatted = moment(latestDate).format('YYYYMMDD')
+              const titleLink = `https://${harvestSubdomain}.harvestapp.com/reports/users/${harvestUserId}?from=${fromFormatted}&kind=custom&till=${toFormatted}`
 
-            bot.reply(message, {
-              attachments: [
-                {
-                  title: `Here is ${name}'s report`,
-                  title_link: titleLink,
-                  // pretext: 'Pretext _supports_ mrkdwn',
-                  text,
-                  mrkdwn_in: ['text'] // , 'pretext']
-                }
-              ]
-            })
+              reply = {
+                attachments: [
+                  {
+                    title: `Here is ${name}'s report`,
+                    title_link: titleLink,
+                    // pretext: 'Pretext _supports_ mrkdwn',
+                    text,
+                    mrkdwn_in: ['text'] // , 'pretext']
+                  }
+                ]
+              }
+            }
+            bot.reply(message, reply)
           } else {
             bot.reply(message, `Sorry ${name}, but there is nothing to report :)`)
           }
