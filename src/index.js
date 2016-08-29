@@ -26,8 +26,8 @@ const harvestSubdomain = process.env.HARVEST_SUBDOMAIN
 const controller = Botkit.slackbot({
   debug: false,
   json_file_store: './cache'
-  //include "log: false" to disable logging
-  //or a "logLevel" integer from 0 to 7 to adjust logging verbosity
+  // include "log: false" to disable logging
+  // or a "logLevel" integer from 0 to 7 to adjust logging verbosity
 })
 const store = Store.curry(controller)
 
@@ -42,17 +42,19 @@ controller.spawn({
   }
 
   // console.log('payload', payload)
-  const { team, channels, groups, users } = payload
-  const { domain } = team
+  // const { team, channels, groups, users } = payload
+  // const { domain } = team
+  const { channels, groups, users } = payload
 
   // store.saveTeamData()
 
   channels.concat(groups).forEach((item) => {
     // console.log('channel:', channel)
     // NOTE(evo): groups imply membership
-    const { id, is_archived, is_member, creator, is_group, name } = item
+    // const { id, is_archived, is_member, creator, is_group, name } = item
+    const { id, is_archived: isArchived, is_member: isMember, is_group: isGroup, name } = item
 
-    if (is_archived || (!is_group && !is_member)) {
+    if (isArchived || (!isGroup && !isMember)) {
       return
     }
 
@@ -66,9 +68,9 @@ controller.spawn({
   })
 
   users.forEach((user) => {
-    const { id, deleted, is_bot, profile, name, real_name } = user
+    const { id, deleted, is_bot: isBot, profile, name } = user
 
-    if (deleted || is_bot || id === 'USLACKBOT') {
+    if (deleted || isBot || id === 'USLACKBOT') {
       return
     }
 
@@ -105,7 +107,6 @@ controller.on(['channel_joined', 'group_joined'], (bot, message) => {
   })
 })
 
-
 const harvestAuth = (bot, message, args = {}) => {
   const { user: userId } = message
   const { harvestEmail: defaultEmail } = args
@@ -134,7 +135,7 @@ const harvestAuth = (bot, message, args = {}) => {
   })
   .then(({ harvestEmail, harvestPassword, didntWork } = {}) => {
     console.log('harvestEmail:', harvestEmail)
-    console.log('didntWork:', didntWork ? 'didnt': 'did')
+    console.log('didntWork:', didntWork ? 'didnt' : 'did')
     if (!harvestEmail || !harvestPassword || didntWork) {
       return new Promise((resolve, reject) => {
         bot.startPrivateConversation(message, (err, convo) => {
@@ -154,14 +155,13 @@ const harvestAuth = (bot, message, args = {}) => {
             privateMessageBegin()
           }
 
-          let someof = ''
           if (saySorry) {
             if (didntWork) {
-              convo.say(`Sorry, but the HARVEST details I've got didn't work.`)
+              convo.say('Sorry, but the HARVEST details I\'ve got didn\'t work.')
             } else if (harvestEmail || harvestPassword) {
-              convo.say(`Sorry, but I don't know some of your HARVEST details.`)
+              convo.say('Sorry, but I don\'t know some of your HARVEST details.')
             } else {
-              convo.say(`Sorry, but I don't know your HARVEST details.`)
+              convo.say('Sorry, but I don\'t know your HARVEST details.')
             }
           }
 
@@ -257,7 +257,7 @@ const harvestAuth = (bot, message, args = {}) => {
               {
                 default: true,
                 callback: (response, convo) => {
-                  convo.say(`Ooookay... didn't get that.`)
+                  convo.say('Ooookay... didn\'t get that.')
                   convo.repeat()
                   convo.next()
                 }
@@ -268,7 +268,7 @@ const harvestAuth = (bot, message, args = {}) => {
           }
 
           convo.on('end', (convo) => {
-            if (convo.status == 'completed') {
+            if (convo.status === 'completed') {
               const { privateMessageCompleted } = args
               if (privateMessageCompleted) {
                 privateMessageCompleted()
@@ -321,7 +321,7 @@ controller.hears('start', ['direct_mention'], (bot, message) => {
   })
   .then(({ lastAuthError }) => {
     if (lastAuthError) {
-      bot.reply(message, `Something didn't work. Please, try again.`)
+      bot.reply(message, 'Something didn\'t work. Please, try again.')
       return
     }
   })
@@ -339,7 +339,7 @@ controller.hears(['(re-?)?auth(enticate)?', 'set[- ]?up', 'log[- ]?in'], ['direc
   harvestAuth(bot, message, {
     saySorry: false,
     gotDetails: () => {
-      bot.reply(message, `The details I've got still work. If you want me to *forget them*, let me know.`)
+      bot.reply(message, 'The details I\'ve got still work. If you want me to *forget them*, let me know.')
     }
   })
   .then(({ harvestEmail, harvestPassword, lastAuthError } = {}) => {
@@ -447,11 +447,11 @@ controller.hears(['today', 'timers'], ['direct_message'], (bot, message) => {
           return (a.updated_at > b.updated_at) - (a.updated_at < b.updated_at)
         })
 
-        const content = timers.map(({ client, project, task, hours, timer_started_at }) => {
+        const content = timers.map(({ client, project, task, hours, timer_started_at: timerStartedAt }) => {
           const duration = moment.duration(hours, 'hours')
           const durationString = duration.format('h:mm', { trim: false })
           let text = `• ${project} (${client}): *${durationString}*`
-          if (timer_started_at) {
+          if (timerStartedAt) {
             text += ' _(running)_'
           }
           if (task && task.length > 0) {
@@ -463,7 +463,7 @@ controller.hears(['today', 'timers'], ['direct_message'], (bot, message) => {
         bot.reply(message, {
           attachments: [
             {
-              title: `Today's timers`,
+              title: 'Today\'s timers',
               // pretext: 'Pretext _supports_ mrkdwn',
               text: content.join('\n'),
               mrkdwn_in: ['text'] // , 'pretext']
@@ -678,16 +678,16 @@ controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( an
           // console.log('todayTimers:', todayTimers)
           // console.log('yesterdayTimers:', yesterdayTimers)
 
-          const content = [yesterdayTimers, todayTimers].map(({ for_day, day_entries } = {}) => {
+          const content = [yesterdayTimers, todayTimers].map(({ for_day: forDay, day_entries: dayEntries } = {}) => {
           // const content = [dayEntries[dateBeforeLatest], dayEntries[latestDate]].map((day_entries) => {
-            if (!day_entries || day_entries.length < 1) {
+            if (!dayEntries || dayEntries.length < 1) {
               return ''
             }
 
-            // const for_day = day_entries[0].spent_at
-            const date = moment(for_day)
+            // const for_day = dayEntries[0].spent_at
+            const date = moment(forDay)
 
-            day_entries.sort((a, b) => {
+            dayEntries.sort((a, b) => {
               return (a.updated_at > b.updated_at) - (a.updated_at < b.updated_at)
             })
 
@@ -702,11 +702,11 @@ controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( an
 
             return [`*${dateString}:*`]
               .concat(
-                day_entries.map(({ client = 'unknown client', project = 'unknown project', task = 'unknown task', hours, timer_started_at, notes }) => {
+                dayEntries.map(({ client = 'unknown client', project = 'unknown project', task = 'unknown task', hours, timer_started_at: timerStartedAt, notes }) => {
                   const duration = moment.duration(hours, 'hours')
                   const durationString = duration.format('h:mm', { trim: false })
                   let text = `• ${project} (${client}): *${durationString}*`
-                  if (timer_started_at) {
+                  if (timerStartedAt) {
                     text += ' _(running)_'
                   }
                   if (withTask && task && task.length > 0) {
@@ -726,13 +726,13 @@ controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( an
           if (text.length > 0) {
             const fromFormatted = moment(dateBeforeLatest).format('YYYYMMDD')
             const toFormatted = moment(latestDate).format('YYYYMMDD')
-            const title_link = `https://${harvestSubdomain}.harvestapp.com/reports/users/${harvestUserId}?from=${fromFormatted}&kind=custom&till=${toFormatted}`
+            const titleLink = `https://${harvestSubdomain}.harvestapp.com/reports/users/${harvestUserId}?from=${fromFormatted}&kind=custom&till=${toFormatted}`
 
             bot.reply(message, {
               attachments: [
                 {
                   title: `Here is ${name}'s report`,
-                  title_link,
+                  title_link: titleLink,
                   // pretext: 'Pretext _supports_ mrkdwn',
                   text,
                   mrkdwn_in: ['text'] // , 'pretext']
@@ -772,14 +772,14 @@ controller.hears(['help', 'info', '[?]+'], ['direct_message'], (bot, message) =>
       return
     }
 
-    convo.say(`I'm a work in progress.`)
-    convo.say(`Ask Evo what I'm for, but he'll let you know soon.`)
+    convo.say('I\'m a work in progress.')
+    convo.say('Ask Evo what I\'m for, but he\'ll let you know soon.')
     convo.next()
   })
 })
 
 controller.hears([/\bcommands\b/], ['direct_message'], (bot, message) => {
-  bot.reply(message, `Sorry, but I can't say yet... since I'm a work in progress.`)
+  bot.reply(message, 'Sorry, but I can\'t say yet... since I\'m a work in progress.')
 })
 
 controller.hears('', ['direct_message'], (bot, message) => {
