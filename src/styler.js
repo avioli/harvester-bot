@@ -70,8 +70,10 @@ module.exports = class Styler {
     return style
   }
 
-  getStyledString (type, string) {
+  getStyledString (style, string) {
     let styledString
+
+    let { type, lowercase } = style
 
     if (type === STYLES.RAW) {
       return string
@@ -97,6 +99,10 @@ module.exports = class Styler {
       case STYLES.RAW:
       default:
         styledString = string
+    }
+
+    if (lowercase) {
+      styledString = styledString.toLowerCase()
     }
 
     return styledString

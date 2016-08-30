@@ -718,7 +718,7 @@ controller.hears([/(\bcompressed|concise|short|neat|condensed|tidy|dense\b)?\s?\
 
             const tooManyDayEntries = dayEntries.length > 5
 
-            return [styles.getStyledString(style.type, dateString)]
+            return [styles.getStyledString(style, dateString)]
               .concat(
                 dayEntries.map(({ client = 'unknown client', project = 'unknown project', task = 'unknown task', hours, timer_started_at: timerStartedAt, notes }) => {
                   let text = ''
