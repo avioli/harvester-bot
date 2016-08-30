@@ -2,3 +2,4 @@ cache
 node_modules
 *._ss.*
 _SS
+styles.json

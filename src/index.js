@@ -8,6 +8,11 @@ const harvester = require('./harvester')
 const moment = require('moment')
 require('moment-duration-format')
 
+const Styler = require('./styler')
+const styles = new Styler({
+  stylesFile: process.cwd() + '/styles.json'
+})
+
 const harvestSubdomain = process.env.HARVEST_SUBDOMAIN
 
 // HARVEST
@@ -615,7 +620,7 @@ controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( an
 */
 
 // controller.hears([/\breport\b/], ['direct_message'], (bot, message) => {
-controller.hears([/(\bcompressed|concise|short|neat|condensed|tidy|dense\b)?\s?\b(report|standup)\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( and( (no|the)( \b[\w]+\b)?)? (notes|task))?)?/], ['direct_mention', 'direct_message'], (bot, message) => {
+controller.hears([/(\bcompressed|concise|short|neat|condensed|tidy|dense\b)?\s?\b(report|standup)\b( w(ith)?( (no|the)( \b\w+\b)?)? (notes|task)( and( (no|the)( \b\w+\b)?)? (notes|task))?)?([\S]* (\w+) style\b)?/], ['direct_mention', 'direct_message'], (bot, message) => {
   const { user: userId, match } = message
   // console.log('message:', message)
   // console.log('match: ', match)
@@ -636,6 +641,8 @@ controller.hears([/(\bcompressed|concise|short|neat|condensed|tidy|dense\b)?\s?\
   if (match[13] === 'notes' && match[11] !== 'no') {
     withNotes = true
   }
+
+  const styleUser = match[15]
 
   store.getUserData(userId)
   .then(({ name = rnd(['sport', 'friend', 'mate', 'friend', 'buddy', 'mate']), harvestEmail, harvestPassword }) => {
@@ -673,6 +680,8 @@ controller.hears([/(\bcompressed|concise|short|neat|condensed|tidy|dense\b)?\s?\
         }
         // console.log('dateBeforeLatest:', dateBeforeLatest)
 
+        const style = styles.getStyleByUser(styleUser || name)
+
         return Promise.all([
           h.getDaily({ date: moment(latestDate).toDate(), slim: 1 }),
           dateBeforeLatest ? h.getDaily({ date: moment(dateBeforeLatest).toDate(), slim: 1 }) : void 0
@@ -699,17 +708,23 @@ controller.hears([/(\bcompressed|concise|short|neat|condensed|tidy|dense\b)?\s?\
               nextDay: '[Tomorrow]',
               nextWeek: 'dddd',
               lastDay: '[Yesterday]',
-              lastWeek: '[Last] dddd',
+              lastWeek: style.useLast ? '[Last] dddd' : 'dddd',
               sameElse: 'DD/MM/YYYY'
             })
 
-            return [`*${dateString}:*`]
+            if (style.short && dateString.match(/^[a-zA-Z]/)) {
+              dateString = dateString[0]
+            }
+
+            const tooManyDayEntries = dayEntries.length > 5
+
+            return [styles.getStyledString(style.type, dateString)]
               .concat(
                 dayEntries.map(({ client = 'unknown client', project = 'unknown project', task = 'unknown task', hours, timer_started_at: timerStartedAt, notes }) => {
                   let text = ''
 
                   if (tidy) {
-                    text += project
+                    text += tooManyDayEntries ? `• ${project}` : project
                   } else {
                     const duration = moment.duration(hours, 'hours')
                     const durationString = duration.format('h:mm', { trim: false })
@@ -735,7 +750,7 @@ controller.hears([/(\bcompressed|concise|short|neat|condensed|tidy|dense\b)?\s?\
                   return text
                 }).reverse()
               )
-              .join(tidy ? ' ' : '\n')
+              .join(tidy && !tooManyDayEntries ? ' ' : '\n')
           })
 
           const text = content.join('\n').trim()

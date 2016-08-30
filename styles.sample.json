@@ -1,0 +1,27 @@
+{
+  "users": {
+    "john": {
+      "type": "COLON",
+      "__NOTE__": "type == COLON is default"
+    },
+    "dave": {
+      "type": "CODE",
+      "useLast": false,
+      "__NOTE__": "useLast determines 'Last [weekday]' day formatting",
+      "lowercase": true
+    },
+    "ben|m(inter)?": {
+      "type": "DASH",
+      "__NOTE__": "user keys are converted to RegExp"
+    },
+    "chris": {
+      "type": "CODE",
+      "short": true,
+      "__NOTE__": "short implies useLast = false"
+    },
+    "evo": {
+      "type": "RANDOM",
+      "__NOTE__": "type == RANDOM picks a random type every time"
+    }
+  }
+}
