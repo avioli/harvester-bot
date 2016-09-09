@@ -15,6 +15,13 @@ const styles = new Styler({
 
 const harvestSubdomain = process.env.HARVEST_SUBDOMAIN
 
+// const __DEBUG__ = true
+const __DEBUG__ = false
+
+const politeRegex = /\b(please|may I|could (I|you)|would you|kindly)\b/i
+
+const reportRegexes = [/(\bcompressed|concise|short|neat|condensed|tidy|dense\b)?\s?\b(report|standup)\b( w(ith)?( (no|the)( \b\w+\b)?)? (notes|task)( and( (no|the)( \b\w+\b)?)? (notes|task))?)?([\S]* (\w+) style\b)?/]
+
 // HARVEST
 // const harvest = new Harvest({
 //   subdomain: process.env.HARVEST_SUBDOMAIN,
@@ -485,144 +492,8 @@ controller.hears(['today', 'timers'], ['direct_message'], (bot, message) => {
   })
 })
 
-const rnd = (array) => {
-  return array[Math.floor(Math.random() * array.length)]
-}
-
-/*
-controller.hears([/\breport\b( w(ith)?( (no|the)( \b[\w]+\b)?)? (notes|task)( and( (no|the)( \b[\w]+\b)?)? (notes|task))?)?/], ['direct_mention'], (bot, message) => {
+function handleReportMessage (bot, message) {
   const { user: userId, match } = message
-  // console.log('message:', message)
-
-  let withTask = false
-  let withNotes = false
-  if (match[6] === 'task' && match[4] !== 'no') {
-    withTask = true
-  }
-  if (match[6] === 'notes' && match[4] !== 'no') {
-    withNotes = true
-  }
-  if (match[11] === 'task' && match[9] !== 'no') {
-    withTask = true
-  }
-  if (match[11] === 'notes' && match[9] !== 'no') {
-    withNotes = true
-  }
-
-  store.getUserData(userId)
-  .then(({ name = rnd(['sport', 'friend', 'mate', 'friend', 'buddy', 'mate']), harvestEmail, harvestPassword }) => {
-    if (!harvestEmail || !harvestPassword) {
-      bot.reply(message, `Sorry *${name}*, but I don't know you!`)
-      return
-    }
-
-    const now = moment()
-    const today = now.clone().startOf('day')
-    const yesterday = today.clone().subtract(1, 'day')
-
-    const h = harvester(harvestEmail, harvestPassword)
-
-    return Promise.all([
-      h.getDaily({ date: today.toDate(), slim: 1 }),
-      h.getDaily({ date: yesterday.toDate(), slim: 1 })
-    ])
-      .then(([todayTimers, yesterdayTimers]) => {
-        // console.log('todayTimers:', todayTimers)
-        // console.log('yesterdayTimers:', yesterdayTimers)
-        let harvestUserId
-
-        const content = [yesterdayTimers, todayTimers].map(({ for_day, day_entries }) => {
-          if (!day_entries || day_entries.length < 1) {
-            return ''
-          }
-
-          const date = moment(for_day)
-
-          day_entries.sort((a, b) => {
-            return (a.updated_at > b.updated_at) - (a.updated_at < b.updated_at)
-          })
-
-          const dateString = date.calendar(now, {
-            sameDay: '[Today]',
-            nextDay: '[Tomorrow]',
-            nextWeek: 'dddd',
-            lastDay: '[Yesterday]',
-            lastWeek: '[Last] dddd',
-            sameElse: 'DD/MM/YYYY'
-          })
-
-          return [`*${dateString}:*`]
-            .concat(
-              day_entries.map(({ user_id, client, project, task, hours, timer_started_at, notes }) => {
-                if (!harvestUserId) {
-                  harvestUserId = user_id
-                }
-                const duration = moment.duration(hours, 'hours')
-                const durationString = duration.format('h:mm', { trim: false })
-                let text = `• ${project} (${client}): *${durationString}*`
-                if (timer_started_at) {
-                  text += ' _(running)_'
-                }
-                if (withTask && task && task.length > 0) {
-                  text += `\n_${task}_`
-                }
-                if (withNotes && notes && notes.length > 0) {
-                  text += `\n_Notes: ${notes}_`
-                }
-                return text
-              }).reverse()
-            )
-            .join('\n')
-        })
-
-        const text = content.join('\n').trim()
-
-        if (text.length > 0) {
-          let title_link
-          if (harvestUserId) {
-            const todayFormatted = today.format('YYYYMMDD')
-            const yesterdayFormatted = yesterday.format('YYYYMMDD')
-            title_link = `https://${harvestSubdomain}.harvestapp.com/reports/users/${harvestUserId}?from=${yesterdayFormatted}&kind=custom&till=${todayFormatted}`
-          }
-
-          bot.reply(message, {
-            attachments: [
-              {
-                title: `Here is ${name}'s report`,
-                title_link,
-                // pretext: 'Pretext _supports_ mrkdwn',
-                text,
-                mrkdwn_in: ['text'] // , 'pretext']
-              }
-            ]
-          })
-        } else {
-          bot.reply(message, `Sorry ${name}, but there is nothing to report :)`)
-        }
-      })
-      .catch((err) => {
-        console.error('Promise.all:getDaily?:', err)
-        bot.startPrivateConversation(message, (_err, convo) => {
-          if (_err) {
-            // NOTE(evo): ignore, since we can't do much about it
-            return
-          }
-          convo.say(`Here is the error message from your report:\n${err.message}`)
-          convo.next()
-        })
-        bot.reply(message, 'Sorry, but there was an error fetching your timers.')
-      })
-  })
-  .catch((err) => {
-    console.error('report:getUserData', err)
-  })
-})
-*/
-
-// controller.hears([/\breport\b/], ['direct_message'], (bot, message) => {
-controller.hears([/(\bcompressed|concise|short|neat|condensed|tidy|dense\b)?\s?\b(report|standup)\b( w(ith)?( (no|the)( \b\w+\b)?)? (notes|task)( and( (no|the)( \b\w+\b)?)? (notes|task))?)?([\S]* (\w+) style\b)?/], ['direct_mention', 'direct_message'], (bot, message) => {
-  const { user: userId, match } = message
-  // console.log('message:', message)
   // console.log('match: ', match)
 
   let tidy = !!match[1] || match[2] === 'standup'
@@ -644,7 +515,7 @@ controller.hears([/(\bcompressed|concise|short|neat|condensed|tidy|dense\b)?\s?\
 
   const styleUser = match[15]
 
-  store.getUserData(userId)
+  return store.getUserData(userId)
   .then(({ name = rnd(['sport', 'friend', 'mate', 'friend', 'buddy', 'mate']), harvestEmail, harvestPassword }) => {
     if (!harvestEmail || !harvestPassword) {
       bot.reply(message, `Sorry *${name}*, but I don't know you!`)
@@ -799,6 +670,35 @@ controller.hears([/(\bcompressed|concise|short|neat|condensed|tidy|dense\b)?\s?\
   .catch((err) => {
     console.error('report:getUserData', err)
   })
+}
+
+controller.hears(reportRegexes, ['direct_mention', 'direct_message'], (bot, message) => {
+  // console.log('message:', message)
+  const { text } = message
+
+  const maybeAskForPoliteness = Math.random() > 0.7
+
+  if (maybeAskForPoliteness) {
+    const shouldAskForPoliteness = !politeRegex.test(text) && !(/\b(thank you|thanks)\b/i).test(text)
+
+    if (shouldAskForPoliteness) {
+      askForPoliteness(bot, message)
+        .then((wasPolite) => {
+          if (!wasPolite) {
+            return
+          }
+          handleReportMessage(bot, message)
+        })
+        .catch((err) => {
+          console.error('controller.hears[report|standup]', err)
+          handleReportMessage(bot, message)
+        })
+
+      return
+    }
+  }
+
+  handleReportMessage(bot, message)
 })
 
 controller.hears(['help', 'info', '[?]+'], ['direct_message'], (bot, message) => {
@@ -853,3 +753,201 @@ controller.hears('', ['direct_message'], (bot, message) => {
 // .subscribe(({ message }) => {
 //   console.log(JSON.stringify(message))
 // })
+
+const rnd = (array) => {
+  return array[Math.floor(Math.random() * array.length)]
+}
+
+const rndPrefixed = (array, prefixes = ' ') => {
+  const rndString = rnd(array)
+  return rndString ? prefixes + rndString : rndString
+}
+
+function ucfirst (string) {
+  return string.charAt(0).toUpperCase() + string.slice(1)
+}
+
+function askForPoliteness (bot, message, userArgs) {
+  let args = Object.assign({
+    politeRegexes: [
+      politeRegex
+    ],
+    initQuestions: [
+      'No please?',
+      'No may I, please?',
+      'No could you please?',
+      'No would you please?',
+      'What happened to politeness?',
+      'Aren\'t you forgetting something?'
+    ],
+    prefixes: [
+      '',
+      '... ',
+      'Really?',
+      'Is it that hard to see?'
+    ],
+    hintAnswers: [
+      '',
+      'You can be nice for once.',
+      'I\'m not your servant! You can be nice for once.',
+      'You can be nicer from time to time.',
+      'Be polite, please.'
+    ],
+    directAnswers: [
+      'Just say please'
+    ],
+    unknownAndUnpoliteAnswers: [
+      '... I\'m still waiting...'
+    ],
+    goodbyeAnswers: [
+      'Okay... see you around.',
+      'Come back when you find your manners.'
+    ],
+
+    patterns: [
+      {
+        name: 'please?',
+        description: 'please as a question',
+        pattern: /\bplease\b[^.!?]*\?/i,
+        message: () => 'Are you asking? It will do.',
+        resolveWith: () => true
+      },
+      {
+        name: 'what for',
+        description: 'containing what for, for, or for what',
+        pattern: /\b((what )?for( what)?)\b/i,
+        message: ({ match }) => ucfirst(match[1]) + '???' + rndPrefixed(args.prefixes) + rndPrefixed(args.hintAnswers)
+      },
+      {
+        name: 'how.../do tell/tell me',
+        description: 'starting with how..., ending with a question mark; do tell or tell me',
+        pattern: /^(how\s*(\?+)?|do tell|tell me)$/i,
+        message: () => rnd(args.directAnswers)
+      },
+      {
+        name: 'what...do',
+        description: 'containing what...do/say',
+        pattern: /\bwhat\b.*\b(do|say)\b.*\?/i,
+        testPoliteness: true,
+        message: () => rnd(args.directAnswers)
+      },
+      {
+        name: 'positive',
+        description: 'positive answer',
+        testPoliteness: true,
+        pattern: bot.utterances.yes,
+        message: () => 'And?'
+      },
+      {
+        name: 'negative',
+        description: 'negative answer',
+        pattern: bot.utterances.no,
+        message: ({ match }) => match[0] + '???' + rndPrefixed(args.prefixes) + rndPrefixed(args.goodbyeAnswers),
+        resolveWith: () => false
+      },
+      {
+        name: 'question',
+        description: 'ending with a question mark',
+        pattern: /\?$/,
+        testPoliteness: (response) => {
+          const { text } = response
+          const sentences = text.split(/(.*?[.?!]+)\s+?/g).filter((s) => s)
+          const qRegex = /\?$/
+          for (let sentence of sentences) {
+            if (!qRegex.test(sentence) && args.politeRegexes.some((regex) => regex.test(sentence))) {
+              return true
+            }
+          }
+          return false
+        },
+        message: () => rnd(args.prefixes) + rndPrefixed(args.hintAnswers)
+      }
+    ]
+  }, userArgs)
+
+  if (args.mutateArgs) {
+    // NOTE(evo) Allow args to be mutated, not replaced
+    // useful if someone wants to prepend or append patterns, ansers and so on...
+    // instead of replacing them altogether, which is what Object.assign() does.
+    args = args.mutateArgs(args)
+  }
+
+  return new Promise((resolve, reject) => {
+    const handlers = args.patterns.map((p) => {
+      return {
+        pattern: p.pattern,
+        callback: (response, convo) => {
+          const { text } = response
+          if (__DEBUG__) {
+            console.log('matched pattern:', p.pattern)
+          }
+
+          let politeEnough = false
+          if (p.testPoliteness) {
+            if (typeof p.testPoliteness === 'function') {
+              politeEnough = p.testPoliteness(response)
+            } else {
+              politeEnough = args.politeRegexes.some((regex) => regex.test(text))
+            }
+          }
+
+          if (politeEnough) {
+            convo.next()
+            resolve(true)
+          } else if (p.resolveWith) {
+            const msg = p.message && p.message(response)
+
+            if (msg) {
+              convo.say(msg)
+            }
+
+            convo.next()
+            resolve(p.resolveWith(response))
+          } else {
+            const msg = p.message && p.message(response)
+
+            if (msg) {
+              ask(convo, msg)
+            } else {
+              // NOTE(evo): falsy message stops the convo
+              convo.next()
+              resolve(false)
+            }
+          }
+        }
+      }
+    })
+
+    handlers.push({
+      default: true,
+      callback: (response, convo) => {
+        const { text } = response
+
+        if (args.politeRegexes.some((regex) => regex.test(text))) {
+          convo.stop()
+          resolve(true)
+        } else {
+          ask(convo, rnd(args.unknownAndUnpoliteAnswers))
+        }
+      }
+    })
+
+    // NOTE(evo): this is a workaround, coz convo.silentRepeat() ends the convo
+    function ask (convo, question, queueNext = true) {
+      convo.ask(question, handlers)
+
+      if (queueNext) {
+        convo.next()
+      }
+    }
+
+    bot.startConversation(message, (err, convo) => {
+      if (err) {
+        return reject(err)
+      }
+
+      ask(convo, rnd(args.initQuestions))
+    })
+  })
+}
+
